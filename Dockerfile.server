@@ -1,0 +1,4 @@
+FROM freqtradeorg/freqtrade:stable
+
+COPY --chown=ftuser:ftuser user_data/config.json /freqtrade/user_data/config.json
+COPY --chown=ftuser:ftuser user_data/strategies/TrainingStrategy.py /freqtrade/user_data/strategies/TrainingStrategy.py
