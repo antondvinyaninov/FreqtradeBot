@@ -1,0 +1,9 @@
+FROM freqtradeorg/freqtrade:stable
+
+USER root
+RUN pip install --no-cache-dir "psycopg[binary]"
+
+COPY --chown=ftuser:ftuser scripts/collect_market_data.py /app/collect_market_data.py
+
+USER ftuser
+ENTRYPOINT ["python", "/app/collect_market_data.py"]
