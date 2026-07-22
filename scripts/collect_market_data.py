@@ -85,23 +85,24 @@ def store_candles(
     ]
     if not records:
         return 0
-    connection.executemany(
-        """
-        INSERT INTO market_candles (
-            exchange_name, pair, timeframe, open_time, open, high, low, close, volume
+    with connection.cursor() as cursor:
+        cursor.executemany(
+            """
+            INSERT INTO market_candles (
+                exchange_name, pair, timeframe, open_time, open, high, low, close, volume
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (exchange_name, pair, timeframe, open_time)
+            DO UPDATE SET
+                open = EXCLUDED.open,
+                high = EXCLUDED.high,
+                low = EXCLUDED.low,
+                close = EXCLUDED.close,
+                volume = EXCLUDED.volume,
+                collected_at = NOW()
+            """,
+            records,
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (exchange_name, pair, timeframe, open_time)
-        DO UPDATE SET
-            open = EXCLUDED.open,
-            high = EXCLUDED.high,
-            low = EXCLUDED.low,
-            close = EXCLUDED.close,
-            volume = EXCLUDED.volume,
-            collected_at = NOW()
-        """,
-        records,
-    )
     connection.commit()
     return len(records)
 
