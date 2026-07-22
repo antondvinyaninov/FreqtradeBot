@@ -23,7 +23,11 @@ def database_url() -> str:
 def configured_pairs() -> list[str]:
     value = os.getenv(
         "COLLECTOR_PAIRS",
-        '["BTC/USDT", "ETH/USDT", "SOL/USDT", "DOGE/USDT"]',
+        (
+            '["BTC/USDT", "ETH/USDT", "SOL/USDT", "DOGE/USDT", '
+            '"BNB/USDT", "XRP/USDT", "ADA/USDT", "AVAX/USDT", '
+            '"LINK/USDT", "TRX/USDT"]'
+        ),
     )
     return json.loads(value)
 
