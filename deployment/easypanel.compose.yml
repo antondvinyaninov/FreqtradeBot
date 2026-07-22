@@ -4,16 +4,10 @@ services:
       context: .
       dockerfile: Dockerfile.server
     restart: unless-stopped
-    command: >
-      trade
-      --logfile /freqtrade/user_data/logs/freqtrade.log
-      --db-url sqlite:////freqtrade/user_data/state/tradesv3.dryrun.sqlite
-      --config /freqtrade/user_data/config.json
-      --strategy TrainingStrategy
+    environment:
+      FREQTRADE__DB_URL: ${FREQTRADE__DB_URL:?Set the PostgreSQL URL in Easypanel.}
     volumes:
-      - freqtrade_state:/freqtrade/user_data/state
       - freqtrade_logs:/freqtrade/user_data/logs
 
 volumes:
-  freqtrade_state:
   freqtrade_logs:
