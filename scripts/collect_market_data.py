@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import ccxt
 import psycopg
@@ -70,6 +70,23 @@ def latest_candle_time(
     return result.fetchone()[0]
 
 
+def earliest_candle_time(
+    connection: psycopg.Connection,
+    exchange_name: str,
+    pair: str,
+    timeframe: str,
+) -> datetime | None:
+    result = connection.execute(
+        """
+        SELECT MIN(open_time)
+        FROM market_candles
+        WHERE exchange_name = %s AND pair = %s AND timeframe = %s
+        """,
+        (exchange_name, pair, timeframe),
+    )
+    return result.fetchone()[0]
+
+
 def store_candles(
     connection: psycopg.Connection,
     exchange_name: str,
@@ -111,13 +128,59 @@ def store_candles(
     return len(records)
 
 
+def backfill_pair(
+    connection: psycopg.Connection,
+    exchange: ccxt.Exchange,
+    pair: str,
+    timeframe: str,
+    history_days: int,
+) -> None:
+    if history_days <= 0:
+        return
+
+    earliest = earliest_candle_time(connection, exchange.id, pair, timeframe)
+    if earliest is None:
+        candles = exchange.fetch_ohlcv(pair, timeframe=timeframe, limit=1000)
+        stored = store_candles(connection, exchange.id, pair, timeframe, candles)
+        logger.info("bootstrap pair=%s fetched=%s stored=%s", pair, len(candles), stored)
+        earliest = earliest_candle_time(connection, exchange.id, pair, timeframe)
+        if earliest is None:
+            return
+
+    target_time = datetime.now(timezone.utc) - timedelta(days=history_days)
+    timeframe_milliseconds = exchange.parse_timeframe(timeframe) * 1000
+
+    while earliest > target_time:
+        earliest_milliseconds = int(earliest.timestamp() * 1000)
+        since = max(
+            int(target_time.timestamp() * 1000),
+            earliest_milliseconds - (timeframe_milliseconds * 1000),
+        )
+        candles = exchange.fetch_ohlcv(pair, timeframe=timeframe, since=since, limit=1000)
+        stored = store_candles(connection, exchange.id, pair, timeframe, candles)
+        updated_earliest = earliest_candle_time(connection, exchange.id, pair, timeframe)
+        logger.info(
+            "backfill pair=%s fetched=%s stored=%s earliest=%s",
+            pair,
+            len(candles),
+            stored,
+            updated_earliest,
+        )
+        if not candles or updated_earliest is None or updated_earliest >= earliest:
+            logger.warning("backfill stopped without older candles pair=%s", pair)
+            return
+        earliest = updated_earliest
+
+
 def collect_once(
     connection: psycopg.Connection,
     exchange: ccxt.Exchange,
     pairs: list[str],
     timeframe: str,
+    history_days: int,
 ) -> None:
     for pair in pairs:
+        backfill_pair(connection, exchange, pair, timeframe, history_days)
         latest = latest_candle_time(connection, exchange.id, pair, timeframe)
         since = int(latest.timestamp() * 1000) if latest else None
         candles = exchange.fetch_ohlcv(pair, timeframe=timeframe, since=since, limit=1000)
@@ -128,15 +191,21 @@ def collect_once(
 def main() -> None:
     timeframe = os.getenv("COLLECTOR_TIMEFRAME", "5m")
     interval = int(os.getenv("COLLECTOR_INTERVAL_SECONDS", "300"))
+    history_days = int(os.getenv("COLLECTOR_HISTORY_DAYS", "180"))
     exchange = ccxt.bingx({"enableRateLimit": True})
     pairs = configured_pairs()
 
     with psycopg.connect(database_url()) as connection:
         initialize_database(connection)
-        logger.info("collector started pairs=%s timeframe=%s", pairs, timeframe)
+        logger.info(
+            "collector started pairs=%s timeframe=%s history_days=%s",
+            pairs,
+            timeframe,
+            history_days,
+        )
         while True:
             try:
-                collect_once(connection, exchange, pairs, timeframe)
+                collect_once(connection, exchange, pairs, timeframe, history_days)
             except (ccxt.BaseError, psycopg.Error) as error:
                 connection.rollback()
                 logger.exception("collection failed: %s", error)
