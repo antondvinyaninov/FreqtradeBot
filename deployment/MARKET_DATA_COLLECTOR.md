@@ -8,10 +8,11 @@
 2. Подключите репозиторий `antondvinyaninov/FreqtradeBot`, ветка `stable`.
 3. В поле Dockerfile укажите `Dockerfile.collector`.
 4. Добавьте переменную `FREQTRADE__DB_URL` со значением внутреннего PostgreSQL URL, начинающегося с `postgresql+psycopg://`.
-5. Добавьте `COLLECTOR_HISTORY_DAYS=180`, чтобы сборщик один раз дополнил историю до 180 дней.
+5. Добавьте `COLLECTOR_HISTORY_DAYS=45`, чтобы не запрашивать у BingX недоступную более старую 5-минутную историю.
 6. Добавьте `FEAR_GREED_HISTORY_DAYS=180`, чтобы загрузить дневную историю индекса страха и жадности.
-7. Нажмите Deploy.
+7. Добавьте `BINANCE_HISTORY_DAYS=180`, `BYBIT_DERIVATIVES_HISTORY_DAYS=180` и `BYBIT_OI_TIMEFRAME=1h`.
+8. Нажмите Deploy.
 
 ## Ожидаемые логи
 
-После первого старта ожидаются строки `collector started`, `fear_greed fetched=...` и `backfill pair=...` для каждой пары. Индекс записывается в таблицу `market_sentiment`; он является индикатором общего настроения рынка, а не торговым сигналом. История свечей загружается страницами по 1000 свечей, начиная от уже сохранённой истории и двигаясь назад до заданного периода. Последующие циклы дописывают только новые данные.
+После первого старта ожидаются строки `collector started`, `fear_greed fetched=...`, `backfill pair=...`, `bybit funding pair=...` и `bybit oi backfill pair=...`. Индекс записывается в таблицу `market_sentiment`; funding — в `market_funding_rates`, open interest — в `market_open_interest`. Binance, BingX и Bybit хранятся раздельно по полю `exchange_name`; они не являются автоматическими торговыми сигналами. История свечей загружается страницами по 1000 свечей, начиная от уже сохранённой истории и двигаясь назад до заданного периода. Последующие циклы дописывают только новые данные.
