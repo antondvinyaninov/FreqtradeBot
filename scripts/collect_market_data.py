@@ -499,7 +499,7 @@ def collect_bybit_open_interest(
                 or updated_earliest is None
                 or (earliest is not None and updated_earliest >= earliest)
             ):
-                return
+                break
             earliest = updated_earliest
             end_time = int(earliest.timestamp() * 1000) - 1
 
