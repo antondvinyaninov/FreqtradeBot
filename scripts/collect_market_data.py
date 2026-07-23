@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import ccxt
 import psycopg
+import requests
 
 
 logging.basicConfig(
@@ -13,6 +14,8 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
 )
 logger = logging.getLogger("market_data_collector")
+FEAR_GREED_SOURCE = "alternative.me"
+FEAR_GREED_URL = "https://api.alternative.me/fng/"
 
 
 def database_url() -> str:
@@ -47,6 +50,18 @@ def initialize_database(connection: psycopg.Connection) -> None:
             volume NUMERIC NOT NULL,
             collected_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             PRIMARY KEY (exchange_name, pair, timeframe, open_time)
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS market_sentiment (
+            source_name TEXT NOT NULL,
+            observed_at TIMESTAMPTZ NOT NULL,
+            fear_greed_value SMALLINT NOT NULL,
+            classification TEXT NOT NULL,
+            collected_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (source_name, observed_at)
         )
         """
     )
@@ -172,6 +187,51 @@ def backfill_pair(
         earliest = updated_earliest
 
 
+def latest_sentiment_time(connection: psycopg.Connection) -> datetime | None:
+    result = connection.execute(
+        """
+        SELECT MAX(observed_at)
+        FROM market_sentiment
+        WHERE source_name = %s
+        """,
+        (FEAR_GREED_SOURCE,),
+    )
+    return result.fetchone()[0]
+
+
+def collect_fear_greed(connection: psycopg.Connection, history_days: int) -> None:
+    limit = max(history_days, 1) if latest_sentiment_time(connection) is None else 1
+    response = requests.get(FEAR_GREED_URL, params={"limit": limit, "format": "json"}, timeout=15)
+    response.raise_for_status()
+    observations = response.json()["data"]
+    records = [
+        (
+            FEAR_GREED_SOURCE,
+            datetime.fromtimestamp(int(observation["timestamp"]), tz=timezone.utc),
+            int(observation["value"]),
+            observation["value_classification"],
+        )
+        for observation in observations
+    ]
+    with connection.cursor() as cursor:
+        cursor.executemany(
+            """
+            INSERT INTO market_sentiment (
+                source_name, observed_at, fear_greed_value, classification
+            )
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (source_name, observed_at)
+            DO UPDATE SET
+                fear_greed_value = EXCLUDED.fear_greed_value,
+                classification = EXCLUDED.classification,
+                collected_at = NOW()
+            """,
+            records,
+        )
+    connection.commit()
+    logger.info("fear_greed fetched=%s stored=%s", len(observations), len(records))
+
+
 def collect_once(
     connection: psycopg.Connection,
     exchange: ccxt.Exchange,
@@ -192,6 +252,7 @@ def main() -> None:
     timeframe = os.getenv("COLLECTOR_TIMEFRAME", "5m")
     interval = int(os.getenv("COLLECTOR_INTERVAL_SECONDS", "300"))
     history_days = int(os.getenv("COLLECTOR_HISTORY_DAYS", "180"))
+    fear_greed_history_days = int(os.getenv("FEAR_GREED_HISTORY_DAYS", "180"))
     exchange = ccxt.bingx({"enableRateLimit": True})
     pairs = configured_pairs()
 
@@ -205,8 +266,9 @@ def main() -> None:
         )
         while True:
             try:
+                collect_fear_greed(connection, fear_greed_history_days)
                 collect_once(connection, exchange, pairs, timeframe, history_days)
-            except (ccxt.BaseError, psycopg.Error) as error:
+            except (ccxt.BaseError, psycopg.Error, requests.RequestException) as error:
                 connection.rollback()
                 logger.exception("collection failed: %s", error)
             time.sleep(interval)
