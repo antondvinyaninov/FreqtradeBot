@@ -254,3 +254,59 @@ def test_strategy_v2_keeps_position_while_trend_remains_healthy() -> None:
     result = strategy.populate_exit_trend(dataframe, {"pair": "BTC/USDT"})
 
     assert result["exit_long"].iloc[-1] == 0
+
+
+def test_strategy_v2_does_not_exit_without_volume() -> None:
+    strategy = load_strategy_class()({})
+    dataframe = pd.DataFrame(
+        {
+            "ema_fast": [101.0, 99.0],
+            "ema_slow": [100.0, 100.0],
+            "close": [101.0, 99.0],
+            "rsi": [60.0, 73.0],
+            "volume": [1000.0, 0.0],
+        }
+    )
+
+    result = strategy.populate_exit_trend(dataframe, {"pair": "BTC/USDT"})
+
+    assert result["exit_long"].iloc[-1] == 0
+
+
+def test_strategy_v2_rejects_adx_at_the_threshold() -> None:
+    strategy = load_strategy_class()({})
+    dataframe = pd.DataFrame(
+        {
+            "ema_fast": [99.0, 101.0],
+            "ema_slow": [100.0, 100.0],
+            "ema_trend": [90.0, 90.0],
+            "close": [100.0, 102.0],
+            "rsi": [55.0, 55.0],
+            "adx": [20.0, 20.0],
+            "volume": [1000.0, 1000.0],
+        }
+    )
+
+    result = strategy.populate_entry_trend(dataframe, {"pair": "BTC/USDT"})
+
+    assert result["enter_long"].iloc[-1] == 0
+
+
+@pytest.mark.parametrize("rsi", [50.0, 65.0])
+def test_strategy_v2_accepts_rsi_entry_boundaries(rsi: float) -> None:
+    strategy = load_strategy_class()({})
+    dataframe = pd.DataFrame(
+        {
+            "ema_fast": [99.0, 101.0],
+            "ema_slow": [100.0, 100.0],
+            "ema_trend": [90.0, 90.0],
+            "close": [100.0, 102.0],
+            "rsi": [rsi, rsi],
+            "adx": [25.0, 25.0],
+            "volume": [1000.0, 1000.0],
+        }
+    )
+
+    result = strategy.populate_entry_trend(dataframe, {"pair": "BTC/USDT"})
+
+    assert result["enter_long"].iloc[-1] == 1

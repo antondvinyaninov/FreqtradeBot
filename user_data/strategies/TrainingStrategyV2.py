@@ -47,9 +47,12 @@ class TrainingStrategyV2(IStrategy):
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         dataframe["exit_long"] = 0
         dataframe.loc[
-            qtpylib.crossed_below(dataframe["ema_fast"], dataframe["ema_slow"])
-            | (dataframe["close"] < dataframe["ema_slow"])
-            | (dataframe["rsi"] > 72),
+            (
+                qtpylib.crossed_below(dataframe["ema_fast"], dataframe["ema_slow"])
+                | (dataframe["close"] < dataframe["ema_slow"])
+                | (dataframe["rsi"] > 72)
+            )
+            & (dataframe["volume"] > 0),
             "exit_long",
         ] = 1
         return dataframe
