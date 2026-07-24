@@ -1,0 +1,17 @@
+services:
+  freqtrade-research:
+    build:
+      context: ..
+      dockerfile: Dockerfile.research
+    restart: unless-stopped
+    environment:
+      FREQTRADE__DB_URL: ${FREQTRADE__DB_URL:?Set a read-only PostgreSQL URL.}
+      RESEARCH_RUN_ON_START: ${RESEARCH_RUN_ON_START:-0}
+      RESEARCH_GIT_REVISION: ${RESEARCH_GIT_REVISION:-unknown}
+    volumes:
+      - freqtrade_research:/research
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  freqtrade_research:

@@ -1,0 +1,23 @@
+FROM freqtradeorg/freqtrade:stable@sha256:87aa5c6d65359b34e9d99a0bb260a38c0efe0315253811e6f48c2afe8f278a6a
+
+USER root
+RUN pip install --no-cache-dir "psycopg[binary]" \
+    && mkdir -p /opt/research/config /opt/research/scripts /opt/research/strategies \
+        /research/data/binance /research/results /research/models /research/logs \
+        /research/user_data \
+    && chown -R ftuser:ftuser /opt/research /research
+
+COPY --chown=ftuser:ftuser user_data/strategies/TrainingStrategy.py /opt/research/strategies/TrainingStrategy.py
+COPY --chown=ftuser:ftuser scripts/export_market_candles.py /opt/research/scripts/export_market_candles.py
+COPY --chown=ftuser:ftuser scripts/run_research_baseline.py /opt/research/scripts/run_research_baseline.py
+COPY --chown=ftuser:ftuser deployment/research/research-backtest.json /opt/research/config/research-backtest.json
+COPY --chown=ftuser:ftuser deployment/research/entrypoint.sh /opt/research/entrypoint.sh
+RUN chmod 0555 /opt/research/entrypoint.sh /opt/research/scripts/*.py
+
+USER ftuser
+WORKDIR /freqtrade
+
+ENV RESEARCH_ROOT=/research \
+    RESEARCH_RUN_ON_START=0
+
+ENTRYPOINT ["/opt/research/entrypoint.sh"]
