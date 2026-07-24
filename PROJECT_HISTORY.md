@@ -2,6 +2,32 @@
 
 Этот файл — журнал ключевых решений, развёртываний и проверок. Новые записи добавляются сверху.
 
+## 2026-07-25 — развёрнут и проверен изолированный `freqtrade-research`
+
+### Фактическая конфигурация Easypanel
+
+- В существующем проекте Easypanel `n8n` развёрнут отдельный App `freqtrade-research` из GitHub-ветки `stable`, commit `2ef5618fdf33787b95e0561dde19f1e44ba3e198`, через `Dockerfile.research`.
+- Research App не заменяет и не связывает жизненный цикл с рабочим `freqtradebot`: у него отдельные image, deployment и volume. После всех проверок `freqtradebot`, `market-data-collector` и PostgreSQL оставались в состоянии `running`.
+- У App нет домена, настроенных или обнаруженных публичных портов и биржевых API-ключей. Auto Deploy оставлен выключенным; replica — одна, start command и entrypoint override отсутствуют.
+- В окружении App заданы только `RESEARCH_RUN_ON_START`, `RESEARCH_GIT_REVISION` и секрет `FREQTRADE__DB_URL`. Значение `RESEARCH_RUN_ON_START=0` подтверждено косвенно повторными restart: новый backtest автоматически не запускался, PID 1 оставался `sleep infinity`.
+- Подключён отдельный Docker volume `research-data` в `/research`. В контейнере созданы `/research/data`, `/research/results`, `/research/models`, `/research/logs` и `/research/user_data`.
+- Контейнер работает как непривилегированный `ftuser` (`uid=1000`), беспарольная эскалация через `sudo` недоступна; image — `easypanel/n8n/freqtrade-research:latest`, публичные порты отсутствуют.
+
+### Read-only PostgreSQL
+
+- Создана отдельная login-роль `freqtrade_research`. Она не является superuser, не может создавать роли или базы, не имеет `BYPASSRLS`, `CREATE`, `INSERT`, `UPDATE`, `DELETE`, доступа к sequences или `TEMPORARY`.
+- Роль имеет только необходимые `CONNECT`, `USAGE` схемы `public` и `SELECT` таблиц; для будущих таблиц установлен default grant `SELECT`. На уровне роли задано `default_transaction_read_only=on`.
+- Чтобы исключить эффективное право `TEMPORARY`, у базы отозван стандартный grant `TEMPORARY` для `PUBLIC` и явно сохранён владельцу `freqtrade`. После изменения подтверждено: владелец сохранил право, `freqtrade_research` его не имеет.
+- Из research-контейнера проверено реальное подключение под `freqtrade_research`: `read_only=on`, `SELECT=true`, `INSERT=false`; контрольный запрос прочитал 659 651 свечу. Строка подключения хранится только как секрет Easypanel и в репозиторий не добавлена.
+
+### Первый серверный baseline и постоянство артефактов
+
+- Вручную выполнен baseline `TrainingStrategy` в Freqtrade `2026.6` на 10 Binance Spot-парах, комиссии 0,1% на сторону, `max_open_trades=1`. Экспортировано 523 651 свеча `5m`; общий диапазон данных — с `2026-01-24 00:30 UTC` по `2026-07-24 20:10 UTC`.
+- Получено 1108 сделок: 298 прибыльных и 810 убыточных, итог `-268,33 USDT` (`-26,83%`), profit factor `0,4688`, максимальная просадка счёта `26,83%`. Результат подтверждает прежний вывод: фиксированный baseline убыточен и не допускается к реальным средствам.
+- Run `20260724T201227Z` завершился со статусом `success`. В `/research/results` сохранены manifest с revision и SHA-256, ZIP backtest-результата и meta-файл; в `/research/data/binance` сохранены 10 Feather-файлов.
+- Постоянство volume проверено дважды заменой контейнера. Сначала контрольный файл сохранился после restart; после baseline SHA-256 всех Feather-файлов, manifest и файлов результата полностью совпали до и после следующего restart. Число run-каталогов осталось равным одному, то есть restart не запустил baseline повторно.
+- После финального restart повторно подтверждены `ftuser`, PID 1 `sleep infinity`, mount `/research`, read-only-подключение к БД и состояние `running` всех рабочих сервисов.
+
 ## 2026-07-24 — аудит данных, первый baseline-бэктест и план серверного research-контура
 
 ### Аудит данных и работающего dry-run
