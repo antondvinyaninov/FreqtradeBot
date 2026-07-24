@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import ccxt
 import psycopg
@@ -140,7 +140,7 @@ def store_candles(
             exchange_name,
             pair,
             timeframe,
-            datetime.fromtimestamp(candle[0] / 1000, tz=timezone.utc),
+            datetime.fromtimestamp(candle[0] / 1000, tz=UTC),
             *candle[1:6],
         )
         for candle in candles
@@ -188,7 +188,7 @@ def backfill_pair(
         if earliest is None:
             return
 
-    target_time = datetime.now(timezone.utc) - timedelta(days=history_days)
+    target_time = datetime.now(UTC) - timedelta(days=history_days)
     timeframe_milliseconds = exchange.parse_timeframe(timeframe) * 1000
 
     while earliest > target_time:
@@ -227,13 +227,14 @@ def latest_sentiment_time(connection: psycopg.Connection) -> datetime | None:
 
 def collect_fear_greed(connection: psycopg.Connection, history_days: int) -> None:
     limit = max(history_days, 1) if latest_sentiment_time(connection) is None else 1
-    response = requests.get(FEAR_GREED_URL, params={"limit": limit, "format": "json"}, timeout=15)
+    request_params: dict[str, str | int] = {"limit": limit, "format": "json"}
+    response = requests.get(FEAR_GREED_URL, params=request_params, timeout=15)
     response.raise_for_status()
     observations = response.json()["data"]
     records = [
         (
             FEAR_GREED_SOURCE,
-            datetime.fromtimestamp(int(observation["timestamp"]), tz=timezone.utc),
+            datetime.fromtimestamp(int(observation["timestamp"]), tz=UTC),
             int(observation["value"]),
             observation["value_classification"],
         )
@@ -301,7 +302,7 @@ def earliest_derivative_time(
 def history_start(latest: datetime | None, history_days: int) -> int:
     if latest is not None:
         return int(latest.timestamp() * 1000) + 1
-    return int((datetime.now(timezone.utc) - timedelta(days=history_days)).timestamp() * 1000)
+    return int((datetime.now(UTC) - timedelta(days=history_days)).timestamp() * 1000)
 
 
 def store_funding_rates(
@@ -314,7 +315,7 @@ def store_funding_rates(
         (
             exchange_name,
             pair,
-            datetime.fromtimestamp(rate["timestamp"] / 1000, tz=timezone.utc),
+            datetime.fromtimestamp(rate["timestamp"] / 1000, tz=UTC),
             rate["fundingRate"],
         )
         for rate in funding_rates
@@ -351,7 +352,7 @@ def store_open_interest(
             exchange_name,
             pair,
             timeframe,
-            datetime.fromtimestamp(int(observation["timestamp"]) / 1000, tz=timezone.utc),
+            datetime.fromtimestamp(int(observation["timestamp"]) / 1000, tz=UTC),
             observation["openInterest"],
         )
         for observation in observations
@@ -392,9 +393,16 @@ def collect_bybit_funding(
         )
         since = history_start(latest, history_days)
         while True:
-            funding_rates = exchange.fetch_funding_rate_history(f"{pair}:USDT", since=since, limit=200)
+            funding_rates = exchange.fetch_funding_rate_history(
+                f"{pair}:USDT", since=since, limit=200
+            )
             stored = store_funding_rates(connection, exchange.id, pair, funding_rates)
-            logger.info("bybit funding pair=%s fetched=%s stored=%s", pair, len(funding_rates), stored)
+            logger.info(
+                "bybit funding pair=%s fetched=%s stored=%s",
+                pair,
+                len(funding_rates),
+                stored,
+            )
             if len(funding_rates) < 200:
                 break
             last_timestamp = funding_rates[-1]["timestamp"]
@@ -409,16 +417,17 @@ def fetch_bybit_open_interest(
     start_time: int,
     end_time: int,
 ) -> list[dict]:
+    request_params: dict[str, str | int] = {
+        "category": "linear",
+        "symbol": pair.replace("/", ""),
+        "intervalTime": timeframe,
+        "startTime": start_time,
+        "endTime": end_time,
+        "limit": 200,
+    }
     response = requests.get(
         BYBIT_OPEN_INTEREST_URL,
-        params={
-            "category": "linear",
-            "symbol": pair.replace("/", ""),
-            "intervalTime": timeframe,
-            "startTime": start_time,
-            "endTime": end_time,
-            "limit": 200,
-        },
+        params=request_params,
         timeout=15,
     )
     response.raise_for_status()
@@ -436,7 +445,7 @@ def collect_bybit_open_interest(
     history_days: int,
 ) -> None:
     for pair in pairs:
-        target_time = datetime.now(timezone.utc) - timedelta(days=history_days)
+        target_time = datetime.now(UTC) - timedelta(days=history_days)
         target_milliseconds = int(target_time.timestamp() * 1000)
         earliest = earliest_derivative_time(
             connection,
@@ -460,7 +469,7 @@ def collect_bybit_open_interest(
                 pair,
                 timeframe,
                 start_time,
-                int(datetime.now(timezone.utc).timestamp() * 1000),
+                int(datetime.now(UTC).timestamp() * 1000),
             )
             stored = store_open_interest(connection, exchange.id, pair, timeframe, observations)
             logger.info("bybit oi pair=%s fetched=%s stored=%s", pair, len(observations), stored)
@@ -469,7 +478,7 @@ def collect_bybit_open_interest(
         end_time = (
             int(earliest.timestamp() * 1000) - 1
             if earliest is not None
-            else int(datetime.now(timezone.utc).timestamp() * 1000)
+            else int(datetime.now(UTC).timestamp() * 1000)
         )
         while end_time > target_milliseconds:
             observations = fetch_bybit_open_interest(
@@ -517,7 +526,7 @@ def collect_bybit_open_interest(
             pair,
             timeframe,
             history_start(latest, history_days),
-            int(datetime.now(timezone.utc).timestamp() * 1000),
+            int(datetime.now(UTC).timestamp() * 1000),
         )
         stored = store_open_interest(connection, exchange.id, pair, timeframe, observations)
         logger.info("bybit oi pair=%s fetched=%s stored=%s", pair, len(observations), stored)
@@ -574,9 +583,9 @@ def main() -> None:
                     bybit_oi_timeframe,
                     bybit_history_days,
                 )
-            except (ccxt.BaseError, psycopg.Error, requests.RequestException) as error:
+            except (ccxt.BaseError, psycopg.Error, requests.RequestException):
                 connection.rollback()
-                logger.exception("collection failed: %s", error)
+                logger.exception("collection failed")
             time.sleep(interval)
 
 

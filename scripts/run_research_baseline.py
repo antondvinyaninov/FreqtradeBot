@@ -9,7 +9,7 @@ import json
 import os
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -145,7 +145,7 @@ def main() -> None:
     results_root.mkdir(parents=True, exist_ok=True)
     logs_root.mkdir(parents=True, exist_ok=True)
 
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     run_dir = results_root / run_id
     run_dir.mkdir()
     manifest_path = run_dir / "manifest.json"
@@ -154,7 +154,7 @@ def main() -> None:
     manifest: dict[str, Any] = {
         "run_id": run_id,
         "status": "running",
-        "started_at": datetime.now(timezone.utc).isoformat(),
+        "started_at": datetime.now(UTC).isoformat(),
         "git_revision": os.environ.get("RESEARCH_GIT_REVISION", "unknown"),
         "freqtrade_version": freqtrade_version(),
         "exchange": args.exchange,
@@ -221,9 +221,7 @@ def main() -> None:
         run(backtest_command, log_path=backtest_log, env=backtest_env)
 
         manifest["stage"] = "artifacts"
-        artifacts = sorted(
-            path for path in run_dir.iterdir() if path.name != manifest_path.name
-        )
+        artifacts = sorted(path for path in run_dir.iterdir() if path.name != manifest_path.name)
         manifest["artifacts"] = [
             {
                 "file": path.name,
@@ -240,7 +238,7 @@ def main() -> None:
         manifest["error"] = str(error)
         raise
     finally:
-        manifest["finished_at"] = datetime.now(timezone.utc).isoformat()
+        manifest["finished_at"] = datetime.now(UTC).isoformat()
         write_manifest(manifest_path, manifest)
 
 
