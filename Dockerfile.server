@@ -2,11 +2,13 @@ FROM freqtradeorg/freqtrade:stable_freqai@sha256:5bb8e1b8efacc37ee2ea8e4ec192947
 
 COPY --chown=ftuser:ftuser user_data/config.json /freqtrade/user_data/config.json
 COPY --chown=ftuser:ftuser user_data/strategies/SmartFreqaiStrategy.py /freqtrade/user_data/strategies/SmartFreqaiStrategy.py
+COPY --chown=ftuser:ftuser scripts/gpt_advisor.py scripts/start_server.sh /freqtrade/scripts/
 
 USER root
 RUN pip install --no-cache-dir "psycopg[binary]==3.3.4" \
+    && chmod +x /freqtrade/scripts/start_server.sh \
     && mkdir -p /freqtrade/user_data/logs \
     && chown -R ftuser:ftuser /freqtrade/user_data
 USER ftuser
 
-CMD ["trade", "--logfile", "/freqtrade/user_data/logs/freqtrade.log", "--config", "/freqtrade/user_data/config.json", "--strategy", "SmartFreqaiStrategy", "--freqaimodel", "LightGBMRegressor"]
+ENTRYPOINT ["/freqtrade/scripts/start_server.sh"]
