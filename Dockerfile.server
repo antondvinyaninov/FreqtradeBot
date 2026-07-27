@@ -1,12 +1,12 @@
-FROM freqtradeorg/freqtrade:stable
+FROM freqtradeorg/freqtrade:stable_freqai@sha256:5bb8e1b8efacc37ee2ea8e4ec192947843d6a9b3537f77f4a86513a11854141f
 
 COPY --chown=ftuser:ftuser user_data/config.json /freqtrade/user_data/config.json
-COPY --chown=ftuser:ftuser user_data/strategies/TrainingStrategy.py /freqtrade/user_data/strategies/TrainingStrategy.py
+COPY --chown=ftuser:ftuser user_data/strategies/SmartFreqaiStrategy.py /freqtrade/user_data/strategies/SmartFreqaiStrategy.py
 
 USER root
-RUN pip install --no-cache-dir "psycopg[binary]" \
+RUN pip install --no-cache-dir "psycopg[binary]==3.3.4" \
     && mkdir -p /freqtrade/user_data/logs \
     && chown -R ftuser:ftuser /freqtrade/user_data
 USER ftuser
 
-CMD ["trade", "--logfile", "/freqtrade/user_data/logs/freqtrade.log", "--config", "/freqtrade/user_data/config.json", "--strategy", "TrainingStrategy"]
+CMD ["trade", "--logfile", "/freqtrade/user_data/logs/freqtrade.log", "--config", "/freqtrade/user_data/config.json", "--strategy", "SmartFreqaiStrategy", "--freqaimodel", "LightGBMRegressor"]
