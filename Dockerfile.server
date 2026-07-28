@@ -1,4 +1,4 @@
-FROM freqtradeorg/freqtrade:stable_freqai@sha256:5bb8e1b8efacc37ee2ea8e4ec192947843d6a9b3537f77f4a86513a11854141f
+FROM freqtradeorg/freqtrade:stable_freqai@sha256:59a449db63a3fc0edfe9279050e60901c7e1824a9e271f283ef0af702fca5985
 
 COPY --chown=ftuser:ftuser user_data/config.json /freqtrade/user_data/config.json
 COPY --chown=ftuser:ftuser user_data/strategies/SmartFreqaiStrategy.py /freqtrade/user_data/strategies/SmartFreqaiStrategy.py
