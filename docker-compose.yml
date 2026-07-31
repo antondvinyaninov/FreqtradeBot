@@ -28,4 +28,5 @@ services:
       --logfile /freqtrade/user_data/logs/freqtrade.log
       --db-url sqlite:////freqtrade/user_data/tradesv3.dryrun.sqlite
       --config /freqtrade/user_data/config.json
-      --strategy TrainingStrategy
+      --config /freqtrade/user_data/nfi-live.json
+      --strategy NostalgiaForInfinityX7

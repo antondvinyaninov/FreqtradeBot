@@ -1,0 +1,18 @@
+{
+    "exchange": {
+        "name": "binance",
+        "key": "",
+        "secret": "",
+        "ccxt_config": {},
+        "ccxt_async_config": {},
+        "pair_blacklist": []
+    },
+    "freqai": {
+        "enabled": false
+    },
+    "add_config_files": [
+        "nfi_configs/trading_mode-spot.json",
+        "nfi_configs/pairlist-volume-binance-usdt.json",
+        "nfi_configs/blacklist-binance.json"
+    ]
+}

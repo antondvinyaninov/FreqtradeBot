@@ -5,10 +5,16 @@ config*.json
 *.sqlite-wal
 logfile.txt
 user_data/*
+.research-local/
 !user_data/strategies/
 user_data/strategies/*
 !user_data/strategies/TrainingStrategy.py
 !user_data/strategies/TrainingStrategyV2.py
+!user_data/strategies/TrainingStrategyV3.py
+!user_data/strategies/TrainingStrategyV4.py
+!user_data/strategies/TrainingStrategyV5.py
+!user_data/strategies/TrainingStrategyV6.py
+!user_data/strategies/TrainingStrategyV7.py
 !user_data/notebooks
 !user_data/models
 !user_data/freqaimodels
@@ -118,3 +124,7 @@ target/
 !config_examples/config_freqai.example.json
 
 docker-compose-*.yml
+
+!user_data/nfi-live.json
+!user_data/nfi_configs/
+!user_data/strategies/NostalgiaForInfinityX7.py
