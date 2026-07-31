@@ -2,6 +2,57 @@
 
 Этот файл — журнал ключевых решений, развёртываний и проверок. Новые записи добавляются сверху.
 
+## 2026-07-25 — серверная проверка `TrainingStrategyV2` завершена решением reject
+
+### Изолированное развёртывание
+
+- Существующий Easypanel App `n8n/freqtrade-research` переключён со `stable` на `research/strategy-v2`; новый project/App не создавался. Развёрнут точный commit `9b0e1a835c2962e42dc7baaf2e5ab84afe634d60`.
+- Auto Deploy остался выключенным, `RESEARCH_RUN_ON_START=0`, портов и доменов нет, биржевые API-ключи отсутствуют. После deploy PID 1 — `sleep infinity`, пользователь — `ftuser` (`uid=1000`), беспарольный `sudo` недоступен.
+- В image присутствуют обе стратегии; SHA-256 серверной `TrainingStrategyV2.py` совпал с локальным: `e99b431fb9dcf874ef7ca89283b75ba48c65ca3753403b63662b29bedd47742e`.
+- PostgreSQL осталась доступна только роли `freqtrade_research`: `default_transaction_read_only=on`, `SELECT=true`, `INSERT=false`. Рабочие `freqtradebot`, `market-data-collector` и PostgreSQL не изменялись и после проверки оставались `running`.
+
+### Честное сравнение baseline и V2
+
+- V2 run `20260724T211704Z` выполнен вручную с `--skip-export` на тех же 10 Feather-файлах, что baseline run `20260724T201227Z`.
+- Для обоих запусков совпали SHA-256 всех файлов данных, число строк (523 651), config SHA-256, комиссия 0,1%, timeframe `5m`, начальная и конечная даты. Различались только стратегия и Git revision.
+- Baseline: 1108 сделок, `-268,334794 USDT` (`-26,83%`), profit factor `0,468801`, max drawdown `26,83%`.
+- V2: 341 сделка, 76 прибыльных и 265 убыточных, `-70,363387 USDT` (`-7,04%`), profit factor `0,372241`, max drawdown `7,04%`.
+- V2 уменьшила абсолютный убыток примерно на `197,97 USDT`, просадку примерно на `19,79` процентного пункта и число сделок на 767, но profit factor ухудшился примерно на `0,0966`.
+- У V2 не было ни одной прибыльной пары из 10 и ни одного прибыльного месяца из 7. Лучшей парой стала `LINK/USDT` (`-0,086%`, PF `0,886`), худшей — `TRX/USDT` (`-1,247%`, PF `0,130`).
+
+### Решение и артефакты
+
+- Формальный gate подтвердил идентичность входов и прохождение ограничений по числу сделок (не менее 200) и drawdown (не более 15%), но провалил обязательные требования положительного net result, profit factor не ниже 1,1 и устойчивости по парам/месяцам.
+- Решение: **reject**. `TrainingStrategyV2` не допускается к dry-run, OOS/walk-forward, hyperopt, RL или реальным средствам; сначала требуется новая объяснимая гипотеза стратегии.
+- Persistent-отчёт сохранён в `/research/results/20260724T211704Z/comparison-vs-baseline.json`, SHA-256 `5caa74ef217a6e63804e283b4979cba42b60850c98948a056ca41eba9818faa7`.
+- После проверки research-контейнер возвращён в idle-состояние; активных процессов Freqtrade нет. Временная Easypanel-сессия завершена с HTTP 200, локальные token и helper-файлы удалены, пароль не сохранялся.
+
+## 2026-07-25 — развёрнут и проверен изолированный `freqtrade-research`
+
+### Фактическая конфигурация Easypanel
+
+- В существующем проекте Easypanel `n8n` развёрнут отдельный App `freqtrade-research` из GitHub-ветки `stable`, commit `2ef5618fdf33787b95e0561dde19f1e44ba3e198`, через `Dockerfile.research`.
+- Research App не заменяет и не связывает жизненный цикл с рабочим `freqtradebot`: у него отдельные image, deployment и volume. После всех проверок `freqtradebot`, `market-data-collector` и PostgreSQL оставались в состоянии `running`.
+- У App нет домена, настроенных или обнаруженных публичных портов и биржевых API-ключей. Auto Deploy оставлен выключенным; replica — одна, start command и entrypoint override отсутствуют.
+- В окружении App заданы только `RESEARCH_RUN_ON_START`, `RESEARCH_GIT_REVISION` и секрет `FREQTRADE__DB_URL`. Значение `RESEARCH_RUN_ON_START=0` подтверждено косвенно повторными restart: новый backtest автоматически не запускался, PID 1 оставался `sleep infinity`.
+- Подключён отдельный Docker volume `research-data` в `/research`. В контейнере созданы `/research/data`, `/research/results`, `/research/models`, `/research/logs` и `/research/user_data`.
+- Контейнер работает как непривилегированный `ftuser` (`uid=1000`), беспарольная эскалация через `sudo` недоступна; image — `easypanel/n8n/freqtrade-research:latest`, публичные порты отсутствуют.
+
+### Read-only PostgreSQL
+
+- Создана отдельная login-роль `freqtrade_research`. Она не является superuser, не может создавать роли или базы, не имеет `BYPASSRLS`, `CREATE`, `INSERT`, `UPDATE`, `DELETE`, доступа к sequences или `TEMPORARY`.
+- Роль имеет только необходимые `CONNECT`, `USAGE` схемы `public` и `SELECT` таблиц; для будущих таблиц установлен default grant `SELECT`. На уровне роли задано `default_transaction_read_only=on`.
+- Чтобы исключить эффективное право `TEMPORARY`, у базы отозван стандартный grant `TEMPORARY` для `PUBLIC` и явно сохранён владельцу `freqtrade`. После изменения подтверждено: владелец сохранил право, `freqtrade_research` его не имеет.
+- Из research-контейнера проверено реальное подключение под `freqtrade_research`: `read_only=on`, `SELECT=true`, `INSERT=false`; контрольный запрос прочитал 659 651 свечу. Строка подключения хранится только как секрет Easypanel и в репозиторий не добавлена.
+
+### Первый серверный baseline и постоянство артефактов
+
+- Вручную выполнен baseline `TrainingStrategy` в Freqtrade `2026.6` на 10 Binance Spot-парах, комиссии 0,1% на сторону, `max_open_trades=1`. Экспортировано 523 651 свеча `5m`; общий диапазон данных — с `2026-01-24 00:30 UTC` по `2026-07-24 20:10 UTC`.
+- Получено 1108 сделок: 298 прибыльных и 810 убыточных, итог `-268,33 USDT` (`-26,83%`), profit factor `0,4688`, максимальная просадка счёта `26,83%`. Результат подтверждает прежний вывод: фиксированный baseline убыточен и не допускается к реальным средствам.
+- Run `20260724T201227Z` завершился со статусом `success`. В `/research/results` сохранены manifest с revision и SHA-256, ZIP backtest-результата и meta-файл; в `/research/data/binance` сохранены 10 Feather-файлов.
+- Постоянство volume проверено дважды заменой контейнера. Сначала контрольный файл сохранился после restart; после baseline SHA-256 всех Feather-файлов, manifest и файлов результата полностью совпали до и после следующего restart. Число run-каталогов осталось равным одному, то есть restart не запустил baseline повторно.
+- После финального restart повторно подтверждены `ftuser`, PID 1 `sleep infinity`, mount `/research`, read-only-подключение к БД и состояние `running` всех рабочих сервисов.
+
 ## 2026-07-24 — аудит данных, первый baseline-бэктест и план серверного research-контура
 
 ### Аудит данных и работающего dry-run

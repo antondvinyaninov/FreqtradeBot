@@ -56,6 +56,27 @@ python /opt/research/scripts/run_research_baseline.py
 Для повторной локальной проверки уже экспортированных файлов можно использовать
 `--skip-export`. Первый серверный запуск всегда выполняется без этого флага.
 
+## Ручной запуск Strategy v2
+
+`TrainingStrategy.py` остаётся неизменяемым контрольным baseline. Кандидат
+`TrainingStrategyV2.py` запускается в том же `freqtrade-research` и на тех же данных:
+
+```bash
+python /opt/research/scripts/run_research_baseline.py \
+  --strategy TrainingStrategyV2 \
+  --skip-export
+```
+
+Для изолированной разработки research-сервис можно временно переключить со `stable` на
+отдельную ветку `research/strategy-v2`. Рабочий `freqtradebot` при этом должен продолжать
+отслеживать только `stable`. Новый Easypanel project или PostgreSQL для каждой стратегии
+не создаются.
+
+Результат v2 сохраняется в отдельном `/research/results/<UTC-run-id>/manifest.json` и
+сравнивается с baseline по net profit, profit factor, max drawdown, числу сделок, парам и
+временным периодам. Один удачный общий итог без устойчивости по периодам не считается
+доказанным улучшением.
+
 ## Проверка
 
 ```bash
