@@ -1,16 +1,41 @@
 {
   "$schema": "https://schema.freqtrade.io/schema.json",
-  "max_open_trades": 1,
+  "max_open_trades": 10,
   "stake_currency": "USDT",
-  "stake_amount": 100,
-  "tradable_balance_ratio": 0.3,
+  "stake_amount": 90,
+  "tradable_balance_ratio": 1.0,
   "fiat_display_currency": "USD",
   "dry_run": true,
   "dry_run_wallet": 1000,
   "trading_mode": "spot",
   "margin_mode": "",
-  "strategy": "TrainingStrategy",
+  "strategy": "SmartFreqaiStrategy",
   "timeframe": "5m",
+  "freqai": {
+    "enabled": true,
+    "purge_old_models": 2,
+    "train_period_days": 30,
+    "backtest_period_days": 7,
+    "identifier": "smart-freqai-research-v2",
+    "feature_parameters": {
+      "include_timeframes": ["5m"],
+      "include_corr_pairlist": [],
+      "label_period_candles": 12,
+      "include_shifted_candles": 2,
+      "indicator_periods_candles": [10, 20, 50]
+    },
+    "data_split_parameters": {
+      "test_size": 0.2,
+      "shuffle": false
+    },
+    "model_training_parameters": {
+      "n_estimators": 300,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 8,
+      "verbosity": -1
+    }
+  },
   "exchange": {
     "name": "binance",
     "key": "",

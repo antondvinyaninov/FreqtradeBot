@@ -102,8 +102,8 @@ def test_server_config_keeps_dry_run_and_enables_temporal_freqai():
 
     assert config["dry_run"] is True
     assert config["trading_mode"] == "spot"
-    assert config["max_open_trades"] == 1
-    assert config["stake_amount"] == 100
+    assert config["max_open_trades"] == 10
+    assert config["stake_amount"] == 90
     assert config["freqai"]["enabled"] is True
     assert config["freqai"]["identifier"] == "smart-freqai-v1"
     assert config["freqai"]["data_split_parameters"]["shuffle"] is False

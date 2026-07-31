@@ -26,6 +26,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timeframe", default="5m")
     parser.add_argument("--fee", type=float, default=0.001)
     parser.add_argument("--strategy", default="TrainingStrategy")
+    parser.add_argument("--freqaimodel")
+    parser.add_argument("--timerange")
     parser.add_argument(
         "--skip-export",
         action="store_true",
@@ -216,6 +218,10 @@ def main() -> None:
             "month",
             "--no-color",
         ]
+        if args.freqaimodel:
+            backtest_command.extend(["--freqaimodel", args.freqaimodel])
+        if args.timerange:
+            backtest_command.extend(["--timerange", args.timerange])
         backtest_env = os.environ.copy()
         backtest_env.pop("FREQTRADE__DB_URL", None)
         run(backtest_command, log_path=backtest_log, env=backtest_env)

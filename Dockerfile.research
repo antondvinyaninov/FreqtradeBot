@@ -1,4 +1,4 @@
-FROM freqtradeorg/freqtrade:stable@sha256:87aa5c6d65359b34e9d99a0bb260a38c0efe0315253811e6f48c2afe8f278a6a
+FROM freqtradeorg/freqtrade:stable_freqai@sha256:5bb8e1b8efacc37ee2ea8e4ec192947843d6a9b3537f77f4a86513a11854141f
 
 USER root
 RUN pip install --no-cache-dir "psycopg[binary]" \
@@ -8,6 +8,8 @@ RUN pip install --no-cache-dir "psycopg[binary]" \
     && chown -R ftuser:ftuser /opt/research /research
 
 COPY --chown=ftuser:ftuser user_data/strategies/TrainingStrategy.py /opt/research/strategies/TrainingStrategy.py
+COPY --chown=ftuser:ftuser user_data/strategies/SmartFreqaiStrategy.py /opt/research/strategies/SmartFreqaiStrategy.py
+COPY --chown=ftuser:ftuser user_data/strategies/SmartFreqaiStrategyV2.py /opt/research/strategies/SmartFreqaiStrategyV2.py
 COPY --chown=ftuser:ftuser scripts/export_market_candles.py /opt/research/scripts/export_market_candles.py
 COPY --chown=ftuser:ftuser scripts/run_research_baseline.py /opt/research/scripts/run_research_baseline.py
 COPY --chown=ftuser:ftuser deployment/research/research-backtest.json /opt/research/config/research-backtest.json
