@@ -16,14 +16,33 @@ def load_v3():
     return module.SmartFreqaiStrategyV3
 
 
+def test_v3_populates_tradeable_trend_indicators():
+    strategy = load_v3()({})
+    strategy.freqai = type("Freqai", (), {"start": lambda self, frame, metadata, owner: frame})()
+    close = pd.Series([100 + index * 0.1 for index in range(100)], dtype=float)
+    frame = pd.DataFrame(
+        {
+            "open": close,
+            "high": close + 0.2,
+            "low": close - 0.2,
+            "close": close,
+            "volume": 1.0,
+        }
+    )
+
+    result = strategy.populate_indicators(frame, {})
+
+    assert {"trend_adx", "trend_ema_spread"} <= set(result.columns)
+
+
 def test_v3_enters_only_when_prediction_covers_costs_and_market_trends():
     strategy = load_v3()({})
     frame = pd.DataFrame(
         {
             "do_predict": [1, 1, 1, 1],
             "&-forward-return": [0.006, 0.006, 0.006, 0.004],
-            "%-adx-period_20": [25.0, 15.0, 25.0, 25.0],
-            "%-ema-spread-period_20": [0.002, 0.002, -0.002, 0.002],
+            "trend_adx": [25.0, 15.0, 25.0, 25.0],
+            "trend_ema_spread": [0.002, 0.002, -0.002, 0.002],
             "volume": [1.0, 1.0, 1.0, 1.0],
         }
     )
