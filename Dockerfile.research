@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir "psycopg[binary]" \
 COPY --chown=ftuser:ftuser user_data/strategies/TrainingStrategy.py /opt/research/strategies/TrainingStrategy.py
 COPY --chown=ftuser:ftuser user_data/strategies/SmartFreqaiStrategy.py /opt/research/strategies/SmartFreqaiStrategy.py
 COPY --chown=ftuser:ftuser user_data/strategies/SmartFreqaiStrategyV2.py /opt/research/strategies/SmartFreqaiStrategyV2.py
+COPY --chown=ftuser:ftuser user_data/strategies/SmartFreqaiStrategyV3.py /opt/research/strategies/SmartFreqaiStrategyV3.py
 COPY --chown=ftuser:ftuser scripts/export_market_candles.py /opt/research/scripts/export_market_candles.py
 COPY --chown=ftuser:ftuser scripts/run_research_baseline.py /opt/research/scripts/run_research_baseline.py
 COPY --chown=ftuser:ftuser deployment/research/research-backtest.json /opt/research/config/research-backtest.json
