@@ -1,0 +1,16 @@
+---
+services:
+  freqtrade-ai:
+    image: freqtradeorg/freqtrade:stable
+    restart: unless-stopped
+    volumes:
+      - "./user_data:/freqtrade/user_data"
+    environment:
+      - FREQTRADE__DB_URL=${FREQTRADE__DB_URL_AI}
+      - FREQTRADE__API_SERVER__LISTEN_PORT=8080
+    command: >
+      trade
+      --logfile /freqtrade/user_data/logs/freqtrade-ai.log
+      --config /freqtrade/user_data/config-ai.json
+      --strategy SmartFreqaiStrategy
+      --freqaimodel LightGBMRegressor

@@ -30,25 +30,4 @@ services:
       --config /freqtrade/user_data/nfi-live.json
       --strategy NostalgiaForInfinityX7
 
-  freqtrade-ai:
-    image: freqtradeorg/freqtrade:stable
-    restart: unless-stopped
-    container_name: freqtrade-ai
-    volumes:
-      - "./user_data:/freqtrade/user_data"
-    # Uses FREQTRADE__DB_URL_AI from Easypanel Environment Variables
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.freqtrade-ai.rule=Host(`ai-freqtradebot.crv1ic.easypanel.host`)"
-      - "traefik.http.routers.freqtrade-ai.entrypoints=websecure"
-      - "traefik.http.routers.freqtrade-ai.tls.certresolver=letsencrypt"
-      - "traefik.http.services.freqtrade-ai.loadbalancer.server.port=8081"
-    environment:
-      - FREQTRADE__DB_URL=${FREQTRADE__DB_URL_AI}
-      - FREQTRADE__API_SERVER__LISTEN_PORT=8081
-    command: >
-      trade
-      --logfile /freqtrade/user_data/logs/freqtrade-ai.log
-      --config /freqtrade/user_data/config-ai.json
-      --strategy SmartFreqaiStrategy
-      --freqaimodel LightGBMRegressor
+
