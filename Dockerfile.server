@@ -1,7 +1,8 @@
 FROM freqtradeorg/freqtrade:stable_freqai@sha256:5bb8e1b8efacc37ee2ea8e4ec192947843d6a9b3537f77f4a86513a11854141f
 
-COPY --chown=ftuser:ftuser user_data/config.json user_data/config-ai.json /freqtrade/user_data/
-COPY --chown=ftuser:ftuser user_data/strategies/SmartFreqaiStrategy.py /freqtrade/user_data/strategies/SmartFreqaiStrategy.py
+COPY --chown=ftuser:ftuser user_data/config.json user_data/config-ai.json user_data/nfi-live.json /freqtrade/user_data/
+COPY --chown=ftuser:ftuser user_data/nfi_configs/ /freqtrade/user_data/nfi_configs/
+COPY --chown=ftuser:ftuser user_data/strategies/ /freqtrade/user_data/strategies/
 COPY --chown=ftuser:ftuser scripts/gpt_advisor.py scripts/start_server.sh /freqtrade/scripts/
 
 USER root
