@@ -71,7 +71,7 @@
         "verbosity": "error"
     },
     "freqai": {
-        "enabled": true,
+        "enabled": false,
         "purge_old_models": 2,
         "train_period_days": 30,
         "backtest_period_days": 7,
